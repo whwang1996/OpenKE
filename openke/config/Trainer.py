@@ -20,6 +20,8 @@ class Trainer(object):
 				 data_loader = None,
 				 train_times = 1000,
 				 alpha = 0.5,
+				 momentum = 0,
+				 weight_decay = 0,
 				 use_gpu = True,
 				 opt_method = "sgd",
 				 save_steps = None,
@@ -31,7 +33,8 @@ class Trainer(object):
 		self.opt_method = opt_method
 		self.optimizer = None
 		self.lr_decay = 0
-		self.weight_decay = 0
+		self.momentum = momentum
+		self.weight_decay = weight_decay
 		self.alpha = alpha
 
 		self.model = model
@@ -81,7 +84,8 @@ class Trainer(object):
 		else:
 			self.optimizer = optim.SGD(
 				self.model.parameters(),
-				lr = self.alpha,
+				lr=self.alpha,
+				momentum=self.momentum,
 				weight_decay=self.weight_decay,
 			)
 		print("Finish initializing...")

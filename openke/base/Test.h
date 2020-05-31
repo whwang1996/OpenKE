@@ -383,12 +383,25 @@ REAL  getTestLinkMR(bool type_constrain = false) {
 }
 
 extern "C"
+REAL  getTestLinkLeftMRR(bool type_constrain = false) {
+    if (type_constrain)
+        return l_filter_reci_rank_constrain;
+    return l_filter_reci_rank;
+}
+
+extern "C"
+REAL  getTestLinkRightMRR(bool type_constrain = false) {
+    if (type_constrain)
+        return r_filter_reci_rank_constrain;
+    return r_filter_reci_rank;
+}
+
+extern "C"
 REAL  getTestLinkMRR(bool type_constrain = false) {
     if (type_constrain)
         return mrrTC;    
     return mrr;
 }
-
 
 /*=====================================================================================
 triple classification

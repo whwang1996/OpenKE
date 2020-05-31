@@ -82,13 +82,15 @@ class Tester(object):
             self.lib.testTail(score.__array_interface__["data"][0], index, type_constrain)
         self.lib.test_link_prediction(type_constrain)
 
+        left_mrr = self.lib.getTestLinkLeftMRR(type_constrain)
+        right_mrr = self.lib.getTestLinkRightMRR(type_constrain)
         mrr = self.lib.getTestLinkMRR(type_constrain)
         mr = self.lib.getTestLinkMR(type_constrain)
         hit10 = self.lib.getTestLinkHit10(type_constrain)
         hit3 = self.lib.getTestLinkHit3(type_constrain)
         hit1 = self.lib.getTestLinkHit1(type_constrain)
-        print (hit10)
-        return mrr, mr, hit10, hit3, hit1
+        print(hit10)
+        return left_mrr, right_mrr, mrr, mr, hit10, hit3, hit1
 
     def get_best_threshlod(self, score, ans):
         res = np.concatenate([ans.reshape(-1,1), score.reshape(-1,1)], axis = -1)
