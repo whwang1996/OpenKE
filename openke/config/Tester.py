@@ -23,12 +23,20 @@ class Tester(object):
         self.lib.testTail.argtypes = [ctypes.c_void_p, ctypes.c_int64, ctypes.c_int64]
         self.lib.test_link_prediction.argtypes = [ctypes.c_int64]
 
+        self.lib.getTestLinkRawLeftMRR.argtypes = [ctypes.c_int64]
+        self.lib.getTestLinkRawRightMRR.argtypes = [ctypes.c_int64]
+        self.lib.getTestLinkLeftMRR.argtypes = [ctypes.c_int64]
+        self.lib.getTestLinkRightMRR.argtypes = [ctypes.c_int64]
         self.lib.getTestLinkMRR.argtypes = [ctypes.c_int64]
         self.lib.getTestLinkMR.argtypes = [ctypes.c_int64]
         self.lib.getTestLinkHit10.argtypes = [ctypes.c_int64]
         self.lib.getTestLinkHit3.argtypes = [ctypes.c_int64]
         self.lib.getTestLinkHit1.argtypes = [ctypes.c_int64]
 
+        self.lib.getTestLinkRawLeftMRR.restype = ctypes.c_float
+        self.lib.getTestLinkRawRightMRR.restype = ctypes.c_float
+        self.lib.getTestLinkLeftMRR.restype = ctypes.c_float
+        self.lib.getTestLinkRightMRR.restype = ctypes.c_float
         self.lib.getTestLinkMRR.restype = ctypes.c_float
         self.lib.getTestLinkMR.restype = ctypes.c_float
         self.lib.getTestLinkHit10.restype = ctypes.c_float
@@ -82,6 +90,8 @@ class Tester(object):
             self.lib.testTail(score.__array_interface__["data"][0], index, type_constrain)
         self.lib.test_link_prediction(type_constrain)
 
+        raw_left_mrr = self.lib.getTestLinkRawLeftMRR(type_constrain)
+        raw_right_mrr = self.lib.getTestLinkRawRightMRR(type_constrain)
         left_mrr = self.lib.getTestLinkLeftMRR(type_constrain)
         right_mrr = self.lib.getTestLinkRightMRR(type_constrain)
         mrr = self.lib.getTestLinkMRR(type_constrain)
@@ -90,7 +100,18 @@ class Tester(object):
         hit3 = self.lib.getTestLinkHit3(type_constrain)
         hit1 = self.lib.getTestLinkHit1(type_constrain)
         print(hit10)
-        return left_mrr, right_mrr, mrr, mr, hit10, hit3, hit1
+
+        return {
+            'raw_left_mrr': raw_left_mrr,
+            'raw_right_mrr': raw_right_mrr,
+            'left_mrr': left_mrr,
+            'right_mrr': right_mrr,
+            'mrr': mrr,
+            'mr': mr,
+            'hit10': hit10,
+            'hit3': hit3,
+            'hit1': hit1
+        }
 
     def get_best_threshlod(self, score, ans):
         res = np.concatenate([ans.reshape(-1,1), score.reshape(-1,1)], axis = -1)

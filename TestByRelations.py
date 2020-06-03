@@ -2,8 +2,9 @@ import os
 from openke.config import Tester
 from openke.module.model import TransE
 from openke.data import TrainDataLoader, TestDataLoader
+import json
 
-dataset_name = 'FB15K237_deeppath'
+dataset_name = 'Wikidata_7concepts'
 
 
 result_path = './checkpoint/transe_' + dataset_name + '/'
@@ -12,43 +13,50 @@ if not os.path.exists(result_path):
 
 data_path = "./benchmarks/" + dataset_name + "/"
 result_file = os.path.join(result_path, 'result.txt')
+result_by_relation_file = os.path.join(result_path, 'result_by_relation.txt')
 
 selected_relation_path = os.path.join(data_path, 'selected_relations')
-selected_relations = os.listdir(selected_relation_path)
+selected_relation_ids = os.listdir(selected_relation_path)
 
 # settings
 train_times = 1000
-vec_dim = 200
+vec_dim = 512
 opt_method = 'sgd'
 momentum = 0.9
 
-margin = 5.25
-learning_rate = 0.1
+margin = 14
+learning_rate = 1
 weight_decay = 0
 p_norm = 1
-reverse_edge_added = True
 
+result_name = 'vec_dim=' + str(vec_dim) + '_margin=' + str(margin) + '_train_times=' + str(train_times) \
+              + '_opt_method=' + opt_method + '_learning_rate=' + str(learning_rate) \
+              + '_momentum=' + str(momentum) \
+    # + '_weight_decay=' + str(weight_decay) + '_p_norm=' + str(p_norm)
+
+print('-' * 100)
+print(result_name)
+
+total_raw_right_rr = 0
+total_raw_right_mrr = 0
 total_right_rr = 0
 total_right_mrr = 0
 relation_count = 0
 total_triple_count = 0
-rel_to_right_mrr_dict = {}
+relation_to_statistics_dict = {}
 
-for selected_relation in selected_relations:
+
+for cur_relation in selected_relation_ids:
     relation_count += 1
 
-    cur_relation_path = os.path.join(data_path, 'selected_relations', selected_relation) + "/"
+    cur_relation_path = os.path.join(data_path, 'selected_relations', cur_relation) + "/"
     with open(os.path.join(cur_relation_path, 'test2id.txt'), 'r', encoding='utf-8') as f:
         cur_triple_count = int(f.readline())
-        total_triple_count += cur_triple_count
+        if cur_triple_count == 0:
+            print(cur_relation, 'cur_triple_count=0')
+            continue
+
         print('cur_relation_count', cur_triple_count)
-
-    result_name = 'vec_dim=' + str(vec_dim) + '_margin=' + str(margin) + '_train_times=' + str(train_times) \
-                  + '_opt_method=' + opt_method + '_learning_rate=' + str(learning_rate) \
-                  + '_momentum=' + str(momentum) + '_weight_decay=' + str(weight_decay) + '_p_norm=' + str(p_norm)
-
-    print('-' * 100)
-    print(result_name)
 
     # dataloader for training
     train_dataloader = TrainDataLoader(
@@ -70,7 +78,7 @@ for selected_relation in selected_relations:
         ent_tot=train_dataloader.get_ent_tot(),
         rel_tot=train_dataloader.get_rel_tot(),
         dim=vec_dim,
-        p_norm=1,
+        p_norm=p_norm,
         norm_flag=True
     )
 
@@ -83,17 +91,23 @@ for selected_relation in selected_relations:
     )
     res = tester.run_link_prediction(type_constrain=False)  # mrr, mr, hit10, hit3, hit1
 
-    # with open(result_file, 'a', encoding='utf-8') as f:
-    #     f.write(result_name + '\t' + ' right_mrr=' + str(res[0]) + ' mr=' + str(res[1])
-    #             + ' hit10=' + str(res[2]) + ' hit3=' + str(res[3]) + ' hit1=' + str(res[4]) + '\n')
-    print(result_name,  'relation=', selected_relation + '\t' + ' right_mrr=' + str(res[0]) + ' mr=' + str(res[1])
-          + ' hit10=' + str(res[2]) + ' hit3=' + str(res[3]) + ' hit1=' + str(res[4]) + '\n')
-    total_right_mrr += res[0]
-    total_right_rr += res[0] * cur_triple_count
+    print(result_name,  'relation=', cur_relation + '\t' + json.dumps(res))
+    total_raw_right_mrr += res['raw_right_mrr']
+    total_raw_right_rr += res['raw_right_mrr'] * cur_triple_count
 
-    rel_to_right_mrr_dict[selected_relation] = res[0]
+    total_right_mrr += res['right_mrr']
+    total_right_rr += res['right_mrr'] * cur_triple_count
+    total_triple_count += cur_triple_count
+
+    relation_to_statistics_dict[cur_relation] = res
 
 print('-' * 100)
-print('weighted mrr', total_right_rr / total_triple_count)
-print('ave mrr', total_right_mrr / relation_count)
-print('rel_to_right_mrr_dict', rel_to_right_mrr_dict)
+print('weighted ave raw right mrr', total_raw_right_rr / total_triple_count)
+print('ave raw right mrr', total_raw_right_mrr / relation_count)
+
+print('weighted ave right mrr', total_right_rr / total_triple_count)
+print('ave right mrr', total_right_mrr / relation_count)
+print('rel_to_right_mrr_dict', relation_to_statistics_dict)
+
+with open(result_by_relation_file, 'a', encoding='utf-8') as f:
+    f.write(result_name + '\t' + json.dumps(relation_to_statistics_dict) + '\n')

@@ -1,3 +1,4 @@
+import json
 import os
 import openke
 from openke.config import Trainer, Tester
@@ -94,6 +95,4 @@ for p_norm in p_norms:
             res = tester.run_link_prediction(type_constrain=False)  # mrr, mr, hit10, hit3, hit1
 
             with open(result_file, 'a', encoding='utf-8') as f:
-                f.write(result_name + '\t' + 'left_mrr=' + str(res[0]) + ' right_mrr=' + str(res[1])
-                        + ' mrr=' + str(res[2]) + ' mr=' + str(res[3])
-                        + ' hit10=' + str(res[4]) + ' hit3=' + str(res[5]) + ' hit1=' + str(res[6]) + '\n')
+                f.write(result_name + '\t' + json.dumps(res) + '\n')

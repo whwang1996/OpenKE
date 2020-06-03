@@ -383,6 +383,20 @@ REAL  getTestLinkMR(bool type_constrain = false) {
 }
 
 extern "C"
+REAL  getTestLinkRawLeftMRR(bool type_constrain = false) {
+    if (type_constrain)
+        return l_reci_rank_constrain;
+    return l_reci_rank;
+}
+
+extern "C"
+REAL  getTestLinkRawRightMRR(bool type_constrain = false) {
+    if (type_constrain)
+        return l_reci_rank_constrain;
+    return r_reci_rank;
+}
+
+extern "C"
 REAL  getTestLinkLeftMRR(bool type_constrain = false) {
     if (type_constrain)
         return l_filter_reci_rank_constrain;
