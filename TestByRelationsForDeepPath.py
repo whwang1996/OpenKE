@@ -6,12 +6,12 @@ from openke.data import TrainDataLoader, TestDataLoader
 dataset_name = 'FB15K237_deeppath'
 
 
-result_path = './checkpoint/transe_' + dataset_name + '/'
-if not os.path.exists(result_path):
-    os.mkdir(result_path)
+checkpoint_path = './checkpoint/transe_' + dataset_name + '/'
+if not os.path.exists(checkpoint_path):
+    os.mkdir(checkpoint_path)
 
 data_path = "./benchmarks/" + dataset_name + "/"
-result_file = os.path.join(result_path, 'result.txt')
+result_file = os.path.join(checkpoint_path, 'result.txt')
 
 selected_relation_path = os.path.join(data_path, 'selected_relations')
 selected_relations = os.listdir(selected_relation_path)
@@ -75,7 +75,7 @@ for selected_relation in selected_relations:
     )
 
     # test the model
-    transe.load_checkpoint(os.path.join(result_path, result_name))
+    transe.load_checkpoint(os.path.join(checkpoint_path, result_name))
     tester = Tester(
         model=transe,
         data_loader=test_dataloader,

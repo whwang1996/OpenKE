@@ -3,11 +3,11 @@ import os
 dataset_name = 'WN18'
 
 
-result_path = './checkpoint/transe_' + dataset_name + '/'
+checkpoint_path = './checkpoint/transe_' + dataset_name + '/'
 
 best_settings = ''
 max_right_mrr = -float("inf")
-with open(os.path.join(result_path, 'result.txt'), 'r', encoding='utf-8') as f:
+with open(os.path.join(checkpoint_path, 'result.txt'), 'r', encoding='utf-8') as f:
     for line in f:
         split_line = line.split('\t')
 

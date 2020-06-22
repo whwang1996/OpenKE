@@ -14,6 +14,10 @@ from sklearn.metrics import roc_auc_score
 import copy
 from tqdm import tqdm
 
+from utils.help_utils import get_entity_to_id_dict, get_relation_to_id_dict, read_edge_file_to_set, \
+    get_id_to_entity_dict, draw_precision_recall_curve, draw_roc_curve
+
+
 class Tester(object):
 
     def __init__(self, model = None, data_loader = None, use_gpu = True):
@@ -75,6 +79,85 @@ class Tester(object):
             'mode': data['mode']
         })
 
+
+    def run_link_prediction_by_testing_data(self, data_path, test_by_pra_testing_file=False):
+        total_labels = []
+        total_confidences = []
+        total_rr = 0
+        total_test_num = 0
+        entity_to_id_dict = get_entity_to_id_dict(os.path.join(data_path, 'entity2id.txt'))
+        # id_to_entity_dict = get_id_to_entity_dict(os.path.join(data_path, 'entity2id.txt'))
+        relation_to_id_dict = get_relation_to_id_dict(os.path.join(data_path, 'relation2id.txt'))
+        graph_set = read_edge_file_to_set(os.path.join(data_path, 'edges'))
+
+        testing_file_dir = os.path.join(data_path, 'testing_data')
+        testing_files = os.listdir(testing_file_dir)
+        for test_file_i, test_file in enumerate(testing_files):
+            cur_labels = []
+            cur_scores = []
+            batch_t = []
+            if not test_file.endswith('.data'):
+                continue
+            print(test_file_i)
+            cur_relation = test_file.replace('.data', '')
+            cur_relation_total_rr = 0
+            cur_relation_total_test_num = 0
+            with open(os.path.join(testing_file_dir, test_file), 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.rstrip('\n')
+                    split_line = line.split(',')
+                    cur_head = split_line[2]
+                    cur_tail = split_line[3]
+
+                    # skip false negatives
+                    if '-' in line and '\t'.join([cur_relation, cur_head, cur_tail]) in graph_set:
+                        continue
+
+                    cur_labels.append(1 if '+' in line else 0)
+                    batch_t.append(entity_to_id_dict[cur_tail])
+
+                    if '+' in line and len(batch_t) > 0:
+                        cur_scores = list(-1 * self.test_one_step({
+                            'batch_h': np.array([entity_to_id_dict[cur_head]]),
+                            'batch_t': np.array(batch_t) if test_by_pra_testing_file else np.array(range(len(entity_to_id_dict))),
+                            'batch_r': np.array([relation_to_id_dict[cur_relation]]),
+                            'mode': 'tail_batch'
+                        }))
+
+                        total_test_num += 1
+                        cur_relation_total_test_num += 1
+
+                        if not test_by_pra_testing_file:
+                            cur_labels = [0] * len(entity_to_id_dict)
+                            cur_labels[entity_to_id_dict[cur_tail]] = 1
+                        count = zip(cur_scores, cur_labels)
+                        count = sorted(count, key=lambda x: x[0], reverse=True)
+
+                        rank = 0
+                        for i, item in enumerate(count):
+                            if item[1] == 1:
+                                rank = i + 1
+                                break
+
+                        rr = 1 / rank if rank != 0 else 0
+                        # print('rr', rr)
+                        total_rr += rr
+                        cur_relation_total_rr += rr
+                        total_labels += cur_labels
+                        total_confidences += cur_scores
+                        cur_labels = []
+                        cur_scores = []
+                        batch_t = []
+            cur_mrr = cur_relation_total_rr / cur_relation_total_test_num if cur_relation_total_test_num > 0 else 0
+            print(cur_relation, 'triple num', cur_relation_total_test_num, 'cur relation mrr', cur_mrr)
+            print('overall mrr', (total_rr / total_test_num) if total_test_num > 0 else 0)
+
+        average_precision = draw_precision_recall_curve(np.array(total_labels), np.array(total_confidences),
+                                                        'prc')
+        roc_auc, optimal_threshold = draw_roc_curve(np.array(total_labels), np.array(total_confidences), 'roc')
+        print('overall mrr', total_rr / total_test_num, 'average_precision', average_precision, 'roc_auc', roc_auc,
+              'total_samples_num', len(total_labels), 'positive_num', total_test_num)
+
     def run_link_prediction(self, type_constrain = False):
         self.lib.initTest()
         self.data_loader.set_sampling_mode('link')
@@ -86,8 +169,20 @@ class Tester(object):
         for index, [data_head, data_tail] in enumerate(training_range):
             score = self.test_one_step(data_head)
             self.lib.testHead(score.__array_interface__["data"][0], index, type_constrain)
+            #--------------------
+            # print('mode', data_head['mode'],
+            #       "len(data_head['batch_h']),", len(data_head['batch_h']),
+            #       "len(data_head['batch_t'])", len(data_head['batch_t']),
+            #       "len(data_head['batch_r'])", len(data_head['batch_r']))
+            #--------------------
             score = self.test_one_step(data_tail)
             self.lib.testTail(score.__array_interface__["data"][0], index, type_constrain)
+            # --------------------
+            # print('mode', data_tail['mode'],
+            #       "len(data_tail['batch_h']),", len(data_tail['batch_h']),
+            #       "len(data_tail['batch_t'])", len(data_tail['batch_t']),
+            #       "len(data_tail['batch_r'])", len(data_tail['batch_r']))
+            # --------------------
         self.lib.test_link_prediction(type_constrain)
 
         raw_left_mrr = self.lib.getTestLinkRawLeftMRR(type_constrain)
