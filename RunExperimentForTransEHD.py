@@ -11,7 +11,7 @@ from utils.help_utils import check_dir
 
 print('torch.cuda.is_available()', torch.cuda.is_available())
 
-dataset_name = 'Wikidata_7concepts_test=exact_all_add_reverse'
+dataset_name = 'Wikidata_7concepts_test=exact_all_add_reverse_multi'
 run_experiment = True
 run_link_prediction_by_testing_data = False
 test_by_pra_testing_file = False
@@ -27,15 +27,15 @@ data_path = "./benchmarks/" + dataset_name + "/"
 result_file = os.path.join(checkpoint_path, 'result.txt')
 
 # settings
-train_times = 1000
-vec_dim = 512
+train_times = 100
+vec_dim = 256
 opt_method = 'sgd'
 momentum = 0.9
 weight_decay = 0
 use_gpu = True
 
-margins = [15]
-learning_rates = [0.1]
+margins = [7.5, 8]
+learning_rates = [0.1, 1]
 p_norms = [1]
 
 

@@ -1,3 +1,4 @@
+import math
 import os
 import random
 from utils.help_utils import pickle_load_data, get_entity_to_id_dict, get_relation_to_id_dict, check_dir, \
@@ -15,7 +16,7 @@ from time import time
 import memory_profiler
 
 
-dataset_name = 'Wikidata_7concepts_test=exact_all_add_reverse'
+dataset_name = 'Wikidata_7concepts_test=exact_all_add_reverse_multi'
 model = 'transe'
 negative_mode = 'normal'
 triple_per_report = 10000
@@ -193,15 +194,19 @@ else:
     relation_to_triples_dict = pickle_load_data(relation_to_triples_dict_path)
 
 labels = []
+relations = []
 confidences = []
 actual_positive_num = 0
 actual_negative_num = 0
+total_auroc = 0
+total_aupr = 0
 for i, relation in enumerate(relation_to_triples_dict):
     print(i, relation)
+    relations.append(relation)
     true_positives_num = 0
     false_positives_num = 0
     cur_relation_triples = relation_to_triples_dict[relation]
-    cur_relation_triples = sorted(cur_relation_triples, key=lambda t: t['confidence'], reverse=True)
+    # cur_relation_triples = sorted(cur_relation_triples, key=lambda t: t['confidence'], reverse=True)
 
     cur_relation_labels = []
     cur_relation_confidences = []
@@ -217,34 +222,80 @@ for i, relation in enumerate(relation_to_triples_dict):
         else:
             actual_negative_num += 1
 
+        # if relation == 'cast member':
+        #     print(triple['label'], triple['confidence'])
+        # if triple['confidence'] > 0.0938:
+        #     if triple['label'] == 1:
+        #         true_positives_num += 1
+        #     else:
+        #         false_positives_num += 1
+
     if len(cur_relation_labels) == 0:
         continue
-    draw_roc_curve(np.array(cur_relation_labels), np.array(cur_relation_confidences),
-                   roc_curve_by_relations_path + '_' + relation)
-    draw_precision_recall_curve(np.array(cur_relation_labels), np.array(cur_relation_confidences),
-                                precision_recall_curve_by_relations_path + '_' + relation)
-    get_top_predictions_stat(cur_relation_confidences, cur_relation_labels)
+    cur_rel_auroc, _ = draw_roc_curve(np.array(cur_relation_labels), np.array(cur_relation_confidences),
+                                      roc_curve_by_relations_path + '_' + relation)
+    cur_rel_auroc = 0 if math.isnan(cur_rel_auroc) else cur_rel_auroc
+    total_auroc += cur_rel_auroc
+    print('cur_rel_auroc', cur_rel_auroc, 'math.isnan(cur_rel_auroc)', cur_rel_auroc is np.nan)
+    cur_rel_aupr = draw_precision_recall_curve(np.array(cur_relation_labels), np.array(cur_relation_confidences),
+                                               precision_recall_curve_by_relations_path + '_' + relation)
+    cur_rel_aupr = 0 if math.isnan(cur_rel_aupr) else cur_rel_aupr
+    total_aupr += cur_rel_aupr
+    # get_top_predictions_stat(cur_relation_confidences, cur_relation_labels)
     # if relation == 'cast member':
     #     print('true_positives_num', true_positives_num, 'false_positives_num', false_positives_num)
     #     exit(-1)
 
-roc_auc, optimal_threshold = draw_roc_curve(np.array(labels), np.array(confidences), roc_curve_path)
-average_precision = draw_precision_recall_curve(np.array(labels), np.array(confidences), precision_recall_curve_path)
+    #     if triple['label'] == 1:
+    #         actual_positive_num += 1
+    #     else:
+    #         actual_negative_num += 1
+    #
+    #     if triple['confidence'] > 0.8:
+    #         if triple['label'] == 1:
+    #             true_positives_num += 1
+    #         else:
+    #             false_positives_num += 1
+    #
+    # print(i, relation, 'len(cur_relation_triples)', len(cur_relation_triples),
+    #       'true_positives_num', true_positives_num, 'false_positives_num', false_positives_num,
+    #       'actual_positive_num', actual_positive_num, 'actual_negative_num', actual_negative_num,
+    #       'TPR', true_positives_num / (actual_positive_num + 1e-5),
+    #       'FPR', false_positives_num / (actual_negative_num + 1e-5))
+
+auroc, optimal_threshold = draw_roc_curve(np.array(labels), np.array(confidences), roc_curve_path)
+aupr = draw_precision_recall_curve(np.array(labels), np.array(confidences), precision_recall_curve_path)
+
+# while True:
+#     threshold = float(input('enter threshold'))
+#     predicted_labels = []
+#     lower_than_threshold_relation = set()
+#     for i, confidence in enumerate(confidences):
+#         if confidence > threshold:
+#             predicted_labels.append(1)
+#         else:
+#             predicted_labels.append(0)
+#             if labels[i] == 1:
+#                 lower_than_threshold_relation.add(relations[i])
+#     print('len(lower_than_threshold_relation)', len(lower_than_threshold_relation))
+#     print('lower_than_threshold_relation', lower_than_threshold_relation)
+#     print('precision_score', precision_score(labels, predicted_labels))
+#     print('recall_score', recall_score(labels, predicted_labels))
 
 print('-' * 100)
 top_predictions_stat = get_top_predictions_stat(confidences, labels)
-print('roc_auc', roc_auc)
+print('roc_auc', auroc)
 print('optimal_threshold_by_roc', optimal_threshold)
-print('average_precision', average_precision)
-# print('optimal_threshold_precision_score', precision_score(labels, predicted_labels))
-# print('optimal_threshold_recall_score', recall_score(labels, predicted_labels))
+print('aupr', aupr)
 print('test samples num', len(labels))
 print('actual_positive_num', actual_positive_num)
 print('actual_negative_num', actual_negative_num)
 result_dict = {
     'optimal_threshold_by_roc': float(optimal_threshold),
-    'average_precision': float(average_precision),
-    'roc_auc': roc_auc,
+    'all_aupr': float(aupr),
+    'all_auroc': float(auroc),
+    'average_aupr': float(total_aupr / len(relation_to_triples_dict)),
+    'average_auroc': float(total_auroc / len(relation_to_triples_dict)),
     # 'optimal_threshold_precision_score': precision_score(labels, predicted_labels),
     # 'optimal_threshold_recall_score': recall_score(labels, predicted_labels),
     'test_samples_num': len(labels),

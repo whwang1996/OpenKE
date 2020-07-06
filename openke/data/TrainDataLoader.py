@@ -197,7 +197,8 @@ class TrainDataLoader(object):
         # print('self.batch_size', self.batch_size, 'self.work_threads', self.work_threads,
         #       'math.ceil(self.batch_size / self.work_threads)', math.ceil(self.batch_size / self.work_threads))
 
-        jobs = [Process(target=generate_negatives, args=(chunked_batch[i],)) for i in range(self.work_threads)]
+        # jobs = [Process(target=generate_negatives, args=(chunked_batch[i],)) for i in range(self.work_threads)]
+        jobs = [Process(target=generate_negatives, args=(chunked_batch[i],)) for i in range(len(chunked_batch))]
         for job in jobs:
             job.start()
         for job in jobs:

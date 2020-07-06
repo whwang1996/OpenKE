@@ -113,9 +113,6 @@ class Tester(object):
                     if '-' in line and '\t'.join([cur_relation, cur_head, cur_tail]) in graph_set:
                         continue
 
-                    cur_labels.append(1 if '+' in line else 0)
-                    batch_t.append(entity_to_id_dict[cur_tail])
-
                     if '+' in line and len(batch_t) > 0:
                         cur_scores = list(-1 * self.test_one_step({
                             'batch_h': np.array([entity_to_id_dict[cur_head]]),
@@ -130,6 +127,7 @@ class Tester(object):
                         if not test_by_pra_testing_file:
                             cur_labels = [0] * len(entity_to_id_dict)
                             cur_labels[entity_to_id_dict[cur_tail]] = 1
+
                         count = zip(cur_scores, cur_labels)
                         count = sorted(count, key=lambda x: x[0], reverse=True)
 
@@ -144,19 +142,41 @@ class Tester(object):
                         total_rr += rr
                         cur_relation_total_rr += rr
                         total_labels += cur_labels
-                        total_confidences += cur_scores
                         cur_labels = []
                         cur_scores = []
                         batch_t = []
+
+                    cur_labels.append(1 if '+' in line else 0)
+                    batch_t.append(entity_to_id_dict[cur_tail])
+
+            # -------------- wrap the last one --------------
+            if len(cur_labels) > 0:
+                count = zip(cur_scores, cur_labels)
+                count = sorted(count, key=lambda x: x[0], reverse=True)
+
+                rank = 0
+                for i, item in enumerate(count):
+                    if item[1] == 1:
+                        rank = i + 1
+                        break
+
+                rr = 1 / rank if rank != 0 else 0
+                # print('rr', rr)
+                total_rr += rr
+                cur_relation_total_rr += rr
+                total_labels += cur_labels
+            # -------------- wrap the last one --------------
+
             cur_mrr = cur_relation_total_rr / cur_relation_total_test_num if cur_relation_total_test_num > 0 else 0
             print(cur_relation, 'triple num', cur_relation_total_test_num, 'cur relation mrr', cur_mrr)
             print('overall mrr', (total_rr / total_test_num) if total_test_num > 0 else 0)
 
-        average_precision = draw_precision_recall_curve(np.array(total_labels), np.array(total_confidences),
-                                                        'prc')
-        roc_auc, optimal_threshold = draw_roc_curve(np.array(total_labels), np.array(total_confidences), 'roc')
-        print('overall mrr', total_rr / total_test_num, 'average_precision', average_precision, 'roc_auc', roc_auc,
+        print('overall mrr', total_rr / total_test_num,
               'total_samples_num', len(total_labels), 'positive_num', total_test_num)
+        # average_precision = draw_precision_recall_curve(np.array(total_labels), np.array(total_confidences),
+        #                                                 'prc')
+        # roc_auc, optimal_threshold = draw_roc_curve(np.array(total_labels), np.array(total_confidences), 'roc')
+        # print('average_precision', average_precision, 'roc_auc', roc_auc)
 
     def run_link_prediction(self, type_constrain = False):
         self.lib.initTest()
